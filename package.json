@@ -7,7 +7,7 @@
 		"deploy": "npm run build && bash deploy.sh",
 		"build": "cross-env NODE_ENV=production webpack-cli --mode=production --config webpack.config.js",
 		"stats": "cross-env NODE_ENV=production webpack-cli --mode=production --profile --json > stats.json",
-		"precommit": "lint-staged",
+		
 		"pretty": "prettier --write 'app/**/*.js'"
 	},
 	"lint-staged": {

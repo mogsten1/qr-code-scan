@@ -111,7 +111,7 @@ body {
   user-select: none;
 }
 
-video {
+/* video {
   transform: translateX(-50%) translateY(-50%);
   top: 50%;
   left: 50%;
@@ -120,6 +120,20 @@ video {
   width: auto;
   height: auto;
   position: absolute;
+} */
+
+select {
+  margin: 0 1em 1em 0;
+  position: relative;
+  top: -1px;
+}
+
+video {
+  background: #222;
+  margin: 0 0 20px 0;
+  --width: 100%;
+  width: var(--width);
+  height: calc(var(--width) * 0.75);
 }
 
 #list li {
