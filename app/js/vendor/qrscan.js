@@ -1,6 +1,9 @@
-import { snackbar } from '../snackbar.js';
+import {
+  snackbar
+} from '../snackbar.js';
 
 var QRReader = {};
+var cameraList = [];
 
 QRReader.active = false;
 QRReader.webcam = null;
@@ -14,16 +17,14 @@ QRReader.setCanvas = () => {
 };
 
 function setPhotoSourceToScan(forSelectedPhotos) {
-  if (!forSelectedPhotos && window.isMediaStreamAPISupported) {
-    QRReader.webcam = document.querySelector('video');
-  } else {
-    QRReader.webcam = document.querySelector('img');
-  }
+  QRReader.webcam = document.querySelector('video');
 }
 
 QRReader.init = () => {
   var baseurl = '';
   var streaming = false;
+
+  var isFrontCam = 0;
 
   // Init Webcam + Canvas
   setPhotoSourceToScan();
@@ -31,94 +32,85 @@ QRReader.init = () => {
   QRReader.setCanvas();
   QRReader.decoder = new Worker(baseurl + 'decoder.js');
 
-  if (window.isMediaStreamAPISupported) {
-    // Resize webcam according to input
-    QRReader.webcam.addEventListener(
-      'play',
-      function(ev) {
-        if (!streaming) {
-          setCanvasProperties();
-          streaming = true;
-        }
-      },
-      false
-    );
-  } else {
-    setCanvasProperties();
-  }
+  QRReader.webcam.addEventListener(
+    'play',
+    function(ev) {
+      if (!streaming) {
+        setCanvasProperties();
+        streaming = true;
+      }
+    },
+    false
+  );
 
   function setCanvasProperties() {
     QRReader.canvas.width = window.innerWidth;
     QRReader.canvas.height = window.innerHeight;
   }
 
+  function gotStream(stream) {
+    window.stream = stream; // make stream available to console
+    QRReader.webcam.srcObject = stream;
+    QRReader.webcam.setAttribute('playsinline', true);
+    QRReader.webcam.setAttribute('controls', true);
+    setTimeout(() => {
+      document.querySelector('video').removeAttribute('controls');
+    });
+    // Refresh button list in case labels have become available
+    return navigator.mediaDevices.enumerateDevices();
+  }
+
   function startCapture(constraints) {
+    if (window.stream) {
+      window.stream.getTracks().forEach(track => {
+        track.stop();
+      });
+    }
+
+    var videoSource = cameraList.length > 0 ? isFrontCam ? cameraList[0].deviceId : cameraList[1].deviceId : null;
+    isFrontCam = !isFrontCam;
+
+    constraints = {
+      video: {
+        deviceId: videoSource ? {
+          exact: videoSource
+        } : undefined
+      }
+    };
+
     navigator.mediaDevices
       .getUserMedia(constraints)
-      .then(function(stream) {
-        QRReader.webcam.srcObject = stream;
-        QRReader.webcam.setAttribute('playsinline', true);
-        QRReader.webcam.setAttribute('controls', true);
-        setTimeout(() => {
-          document.querySelector('video').removeAttribute('controls');
-        });
-      })
-      .catch(function(err) {
-        console.log('Error occurred ', err);
-        showErrorMsg();
-      });
+      .then(gotStream)
+      .then(gotDevices)
+      .catch(function(err) {});
   }
 
-  if (window.isMediaStreamAPISupported) {
-    navigator.mediaDevices
-      .enumerateDevices()
-      .then(function(devices) {
-        var device = devices.filter(function(device) {
-          var deviceLabel = device.label.split(',')[1];
-          if (device.kind == 'videoinput') {
-            return device;
-          }
-        });
+  //videoSelect.onchange = startCapture;
 
-        var constraints;
-        if (device.length > 1) {
-          constraints = {
-            video: {
-              mandatory: {
-                sourceId: device[1].deviceId ? device[1].deviceId : null
-              }
-            },
-            audio: false
-          };
-
-          if (window.iOS) {
-            constraints.video.facingMode = 'environment';
-          }
-          startCapture(constraints);
-        } else if (device.length) {
-          constraints = {
-            video: {
-              mandatory: {
-                sourceId: device[0].deviceId ? device[0].deviceId : null
-              }
-            },
-            audio: false
-          };
-
-          if (window.iOS) {
-            constraints.video.facingMode = 'environment';
-          }
-
-          startCapture(constraints);
-        } else {
-          startCapture({ video: true });
-        }
-      })
-      .catch(function(error) {
-        showErrorMsg();
-        console.error('Error occurred : ', error);
-      });
+  function gotDevices(devices) {
+    //end by Jin
+    cameraList = devices.filter(function(device) {
+      if (device.kind == 'videoinput') {
+        return device;
+      }
+    });
   }
+
+  // if (window.isMediaStreamAPISupported) {
+  navigator.mediaDevices
+    .enumerateDevices()
+    .then(gotDevices)
+    .catch(function(error) {
+      //showErrorMsg();
+      console.error('Error occurred : ', error);
+    });
+
+  const switchCam = document.querySelector('.app__select-photos');
+
+  switchCam.addEventListener('click', startCapture);
+  // }
+
+  startCapture();
 
   function showErrorMsg() {
     window.noCameraPermission = true;
@@ -136,6 +128,7 @@ QRReader.init = () => {
 QRReader.scan = function(callback, forSelectedPhotos) {
   QRReader.active = true;
   QRReader.setCanvas();
+
   function onDecoderMessage(event) {
     if (event.data.length > 0) {
       var qrid = event.data[0][2];

@@ -53,7 +53,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }, 1000);
 
     // To support other browsers who dont have mediaStreamAPI
-    selectFromPhoto();
+    //selectFromPhoto();
   });
 
   function setCameraOverlay() {
